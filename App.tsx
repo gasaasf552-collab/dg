@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth, useProfile, useClients, usePackages, useLeads, useProjects } from './hooks/useSupabase';
+import SupabaseAuth from './components/SupabaseAuth';
+import PublicSupabaseBooking from './components/PublicSupabaseBooking';
+import PublicSupabaseFeedback from './components/PublicSupabaseFeedback';
+import PublicSupabaseLeadForm from './components/PublicSupabaseLeadForm';
 import { ViewType, Client, Project, TeamMember, Transaction, Package, AddOn, TeamProjectPayment, Profile, FinancialPocket, TeamPaymentRecord, Lead, RewardLedgerEntry, User, Card, Asset, ClientFeedback, Contract, RevisionStatus, NavigationAction, Notification, SocialMediaPost, PromoCode, SOP, CardType, PocketType, VendorData } from './types';
 import { MOCK_USERS, DEFAULT_USER_PROFILE, MOCK_DATA, HomeIcon, FolderKanbanIcon, UsersIcon, DollarSignIcon, PlusIcon, lightenColor, darkenColor, hexToHsl } from './constants';
 import Sidebar from './components/Sidebar';
@@ -66,8 +71,13 @@ const BottomNavBar: React.FC<{ activeView: ViewType; handleNavigation: (view: Vi
 };
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { profile, loading: profileLoading, updateProfile } = useProfile();
+  const { clients, createClient, updateClient, deleteClient } = useClients();
+  const { packages, createPackage, updatePackage, deletePackage } = usePackages();
+  const { leads, createLead, updateLead, deleteLead } = useLeads();
+  const { projects, createProject, updateProject, deleteProject } = useProjects();
+  
   const [activeView, setActiveView] = useState<ViewType>(ViewType.HOMEPAGE);
   const [notification, setNotification] = useState<string>('');
   const [initialAction, setInitialAction] = useState<NavigationAction | null>(null);
@@ -75,19 +85,12 @@ const App: React.FC = () => {
   const [route, setRoute] = useState(window.location.hash || '#/home');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // --- State Initialization ---
-  const [users, setUsers] = useState<User[]>(() => JSON.parse(JSON.stringify(MOCK_USERS)));
-  
-  // --- All data is now initialized from a single mock data source ---
-  const [clients, setClients] = useState<Client[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.clients)));
-  const [projects, setProjects] = useState<Project[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.projects)));
+  // --- Mock data for features not yet integrated with Supabase ---
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamMembers)));
   const [transactions, setTransactions] = useState<Transaction[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.transactions)));
   const [teamProjectPayments, setTeamProjectPayments] = useState<TeamProjectPayment[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamProjectPayments)));
   const [teamPaymentRecords, setTeamPaymentRecords] = useState<TeamPaymentRecord[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamPaymentRecords)));
   const [pockets, setPockets] = useState<FinancialPocket[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.pockets)));
-  const [profile, setProfile] = useState<Profile>(() => JSON.parse(JSON.stringify(MOCK_DATA.profile)));
-  const [leads, setLeads] = useState<Lead[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.leads)));
   const [rewardLedgerEntries, setRewardLedgerEntries] = useState<RewardLedgerEntry[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.rewardLedgerEntries)));
   const [cards, setCards] = useState<Card[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.cards)));
   const [assets, setAssets] = useState<Asset[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.assets)));
@@ -97,7 +100,6 @@ const App: React.FC = () => {
   const [socialMediaPosts, setSocialMediaPosts] = useState<SocialMediaPost[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.socialMediaPosts)));
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.promoCodes)));
   const [sops, setSops] = useState<SOP[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.sops)));
-  const [packages, setPackages] = useState<Package[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.packages)));
   const [addOns, setAddOns] = useState<AddOn[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.addOns)));
 
 
@@ -136,7 +138,7 @@ const App: React.FC = () => {
     const handleHashChange = () => {
         const newRoute = window.location.hash || '#/home';
         setRoute(newRoute);
-        if (!isAuthenticated) {
+        if (!user) {
             const isPublicRoute = newRoute.startsWith('#/public') || newRoute.startsWith('#/feedback') || newRoute.startsWith('#/suggestion-form') || newRoute.startsWith('#/revision-form') || newRoute.startsWith('#/portal') || newRoute.startsWith('#/freelancer-portal') || newRoute.startsWith('#/login') || newRoute === '#/home' || newRoute === '#';
             if (!isPublicRoute) {
                 window.location.hash = '#/home';
@@ -146,7 +148,7 @@ const App: React.FC = () => {
     window.addEventListener('hashchange', handleHashChange);
     handleHashChange(); // Initial check
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [isAuthenticated]);
+  }, [user]);
   
   useEffect(() => {
         const styleElement = document.getElementById('public-theme-style');
@@ -156,7 +158,7 @@ const App: React.FC = () => {
         document.body.classList.toggle('public-page-body', isPublicRoute);
 
         if (isPublicRoute) {
-            const brandColor = profile.brandColor || '#3b82f6';
+            const brandColor = profile?.brandColor || '#3b82f6';
             
             if (styleElement) {
                 const hoverColor = darkenColor(brandColor, 10);
@@ -173,7 +175,7 @@ const App: React.FC = () => {
             styleElement.innerHTML = '';
         }
 
-    }, [route, profile.brandColor]);
+    }, [route, profile?.brandColor]);
 
   const showNotification = (message: string, duration: number = 3000) => {
     setNotification(message);
@@ -182,20 +184,13 @@ const App: React.FC = () => {
     }, duration);
   };
 
-  const handleSetProfile = (value: React.SetStateAction<Profile>) => {
-    setProfile(value);
-  };
-
-  const handleLoginSuccess = (user: User) => {
-    setIsAuthenticated(true);
-    setCurrentUser(user);
+  const handleAuthSuccess = () => {
     window.location.hash = '#/dashboard';
     setActiveView(ViewType.DASHBOARD);
   };
   
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
+    signOut();
     window.location.hash = '#/home';
     setActiveView(ViewType.HOMEPAGE);
   };
@@ -237,12 +232,25 @@ const App: React.FC = () => {
   };
 
   const hasPermission = (view: ViewType) => {
-    if (!currentUser) return false;
-    if (currentUser.role === 'Admin') return true;
+    if (!user) return false;
+    // For now, all authenticated users have access to all views
+    // In a real app, you'd check user roles and permissions
     if (view === ViewType.DASHBOARD) return true;
-    return currentUser.permissions?.includes(view) || false;
+    return true;
   };
   
+  // Show loading while checking authentication
+  if (authLoading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-brand-bg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-accent mx-auto"></div>
+          <p className="mt-4 text-brand-text-secondary">Memuat aplikasi...</p>
+        </div>
+      </div>
+    );
+  }
+
   const renderView = () => {
     if (!hasPermission(activeView)) {
         return <AccessDenied onBackToDashboard={() => setActiveView(ViewType.DASHBOARD)} />;
@@ -263,17 +271,37 @@ const App: React.FC = () => {
           assets={assets}
           clientFeedback={clientFeedback}
           contracts={contracts}
-          currentUser={currentUser}
-          projectStatusConfig={profile.projectStatusConfig}
+          currentUser={null}
+          projectStatusConfig={profile?.projectStatusConfig || []}
         />;
       case ViewType.PROSPEK:
         return <Leads
-            leads={leads} setLeads={setLeads}
-            clients={clients} setClients={setClients}
-            projects={projects} setProjects={setProjects}
+            leads={leads} setLeads={async (newLeads) => {
+              if (typeof newLeads === 'function') {
+                // Handle function updates - for now just log
+                console.log('Lead update function called')
+              } else {
+                // Handle direct array updates
+                console.log('Direct lead update')
+              }
+            }}
+            clients={clients} setClients={async (newClients) => {
+              if (typeof newClients === 'function') {
+                console.log('Client update function called')
+              } else {
+                console.log('Direct client update')
+              }
+            }}
+            projects={projects} setProjects={async (newProjects) => {
+              if (typeof newProjects === 'function') {
+                console.log('Project update function called')
+              } else {
+                console.log('Direct project update')
+              }
+            }}
             packages={packages} addOns={addOns}
             transactions={transactions} setTransactions={setTransactions}
-            userProfile={profile} setProfile={handleSetProfile} showNotification={showNotification}
+            userProfile={profile || MOCK_DATA.profile} setProfile={updateProfile} showNotification={showNotification}
             cards={cards} setCards={setCards}
             pockets={pockets} setPockets={setPockets}
             promoCodes={promoCodes} setPromoCodes={setPromoCodes}
@@ -292,11 +320,23 @@ const App: React.FC = () => {
         />;
       case ViewType.CLIENTS:
         return <Clients
-          clients={clients} setClients={setClients}
-          projects={projects} setProjects={setProjects}
+          clients={clients} setClients={async (newClients) => {
+            if (typeof newClients === 'function') {
+              console.log('Client update function called')
+            } else {
+              console.log('Direct client update')
+            }
+          }}
+          projects={projects} setProjects={async (newProjects) => {
+            if (typeof newProjects === 'function') {
+              console.log('Project update function called')
+            } else {
+              console.log('Direct project update')
+            }
+          }}
           packages={packages} addOns={addOns}
           transactions={transactions} setTransactions={setTransactions}
-          userProfile={profile}
+          userProfile={profile || MOCK_DATA.profile}
           showNotification={showNotification}
           initialAction={initialAction} setInitialAction={setInitialAction}
           cards={cards} setCards={setCards}
@@ -311,14 +351,20 @@ const App: React.FC = () => {
         />;
       case ViewType.PROJECTS:
         return <Projects 
-          projects={projects} setProjects={setProjects}
+          projects={projects} setProjects={async (newProjects) => {
+            if (typeof newProjects === 'function') {
+              console.log('Project update function called')
+            } else {
+              console.log('Direct project update')
+            }
+          }}
           clients={clients}
           packages={packages}
           teamMembers={teamMembers}
           teamProjectPayments={teamProjectPayments} setTeamProjectPayments={setTeamProjectPayments}
           transactions={transactions} setTransactions={setTransactions}
           initialAction={initialAction} setInitialAction={setInitialAction}
-          profile={profile}
+          profile={profile || MOCK_DATA.profile}
           showNotification={showNotification}
           cards={cards}
           setCards={setCards}
@@ -334,12 +380,18 @@ const App: React.FC = () => {
             setTeamPaymentRecords={setTeamPaymentRecords}
             transactions={transactions}
             setTransactions={setTransactions}
-            userProfile={profile}
+            userProfile={profile || MOCK_DATA.profile}
             showNotification={showNotification}
             initialAction={initialAction}
             setInitialAction={setInitialAction}
             projects={projects}
-            setProjects={setProjects}
+            setProjects={async (newProjects) => {
+              if (typeof newProjects === 'function') {
+                console.log('Project update function called')
+              } else {
+                console.log('Direct project update')
+              }
+            }}
             rewardLedgerEntries={rewardLedgerEntries}
             setRewardLedgerEntries={setRewardLedgerEntries}
             pockets={pockets}
@@ -354,36 +406,48 @@ const App: React.FC = () => {
           transactions={transactions} setTransactions={setTransactions}
           pockets={pockets} setPockets={setPockets}
           projects={projects}
-          profile={profile}
+          profile={profile || MOCK_DATA.profile}
           cards={cards} setCards={setCards}
           teamMembers={teamMembers}
           rewardLedgerEntries={rewardLedgerEntries}
         />;
       case ViewType.PACKAGES:
-        return <Packages packages={packages} setPackages={setPackages} addOns={addOns} setAddOns={setAddOns} projects={projects} />;
+        return <Packages packages={packages} setPackages={async (newPackages) => {
+          if (typeof newPackages === 'function') {
+            console.log('Package update function called')
+          } else {
+            console.log('Direct package update')
+          }
+        }} addOns={addOns} setAddOns={setAddOns} projects={projects} />;
       case ViewType.ASSETS:
-        return <Assets assets={assets} setAssets={setAssets} profile={profile} showNotification={showNotification} />;
+        return <Assets assets={assets} setAssets={setAssets} profile={profile || MOCK_DATA.profile} showNotification={showNotification} />;
       case ViewType.CONTRACTS:
         return <Contracts 
             contracts={contracts} setContracts={setContracts}
-            clients={clients} projects={projects} profile={profile}
+            clients={clients} projects={projects} profile={profile || MOCK_DATA.profile}
             showNotification={showNotification}
             initialAction={initialAction} setInitialAction={setInitialAction}
             packages={packages}
             onSignContract={(cId, sig, signer) => setContracts(prev => prev.map(c => c.id === cId ? { ...c, [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig } : c))}
         />;
       case ViewType.SOP:
-        return <SOPManagement sops={sops} setSops={setSops} profile={profile} showNotification={showNotification} />;
+        return <SOPManagement sops={sops} setSops={setSops} profile={profile || MOCK_DATA.profile} showNotification={showNotification} />;
       case ViewType.SETTINGS:
         return <Settings 
-          profile={profile} setProfile={handleSetProfile} 
+          profile={profile || MOCK_DATA.profile} setProfile={updateProfile} 
           transactions={transactions} projects={projects}
-          users={users.filter(u => u.vendorId === currentUser?.vendorId)} // Only pass users for the current vendor
-          setUsers={setUsers}
-          currentUser={currentUser}
+          users={[]} // Empty for now since user management is not implemented
+          setUsers={() => {}}
+          currentUser={null}
         />;
       case ViewType.CALENDAR:
-        return <CalendarView projects={projects} setProjects={setProjects} teamMembers={teamMembers} profile={profile} />;
+        return <CalendarView projects={projects} setProjects={async (newProjects) => {
+          if (typeof newProjects === 'function') {
+            console.log('Project update function called')
+          } else {
+            console.log('Direct project update')
+          }
+        }} teamMembers={teamMembers} profile={profile || MOCK_DATA.profile} />;
       case ViewType.CLIENT_REPORTS:
         return <ClientReports 
             clients={clients}
@@ -404,46 +468,46 @@ const App: React.FC = () => {
   
   // --- ROUTING LOGIC ---
   if (route.startsWith('#/home') || route === '#/') return <Homepage />;
-  if (route.startsWith('#/login')) return <Login onLoginSuccess={handleLoginSuccess} users={users} />;
+  if (route.startsWith('#/login')) return <SupabaseAuth onAuthSuccess={handleAuthSuccess} />;
   
   if (route.startsWith('#/public-packages')) {
-    return <PublicPackages
-        packages={packages}
-        addOns={addOns}
-        userProfile={profile}
-        showNotification={showNotification}
-        setClients={setClients}
-        setProjects={setProjects}
-        setTransactions={setTransactions}
-        setCards={setCards}
-        setLeads={setLeads}
-        addNotification={addNotification}
-        cards={cards}
-        promoCodes={promoCodes}
-        setPromoCodes={setPromoCodes}
-    />;
+    const vendorId = route.split('/public-packages/')[1];
+    return <PublicSupabaseBooking vendorId={vendorId} />;
   }
   if (route.startsWith('#/public-booking')) {
-    const allDataForForm = { clients, projects, teamMembers, transactions, teamProjectPayments, teamPaymentRecords, pockets, profile, leads, rewardLedgerEntries, cards, assets, contracts, clientFeedback, notifications, socialMediaPosts, promoCodes, sops, packages, addOns };
-    return <PublicBookingForm {...allDataForForm} userProfile={profile} showNotification={showNotification} setClients={setClients} setProjects={setProjects} setTransactions={setTransactions} setCards={setCards} setPockets={setPockets} setPromoCodes={setPromoCodes} setLeads={setLeads} addNotification={addNotification} />;
+    const vendorId = route.split('/public-booking/')[1];
+    return <PublicSupabaseBooking vendorId={vendorId} />;
   }
   if (route.startsWith('#/public-lead-form')) {
-    return <PublicLeadForm setLeads={setLeads} userProfile={profile} showNotification={showNotification} />;
+    const vendorId = route.split('/public-lead-form/')[1];
+    return <PublicSupabaseLeadForm vendorId={vendorId} />;
   }
   
-  if (route.startsWith('#/feedback')) return <PublicFeedbackForm setClientFeedback={setClientFeedback} />;
+  if (route.startsWith('#/feedback')) {
+    const vendorId = route.split('/feedback/')[1] || 'default';
+    return <PublicSupabaseFeedback vendorId={vendorId} />;
+  }
   if (route.startsWith('#/suggestion-form')) return <SuggestionForm setLeads={setLeads} />;
-  if (route.startsWith('#/revision-form')) return <PublicRevisionForm projects={projects} teamMembers={teamMembers} onUpdateRevision={(pId, rId, data) => setProjects(prev => prev.map(p => p.id === pId ? {...p, revisions: p.revisions?.map(r => r.id === rId ? {...r, ...data, completedDate: new Date().toISOString()} : r)} : p))} />;
+  if (route.startsWith('#/revision-form')) return <PublicRevisionForm projects={projects} teamMembers={teamMembers} onUpdateRevision={(pId, rId, data) => {
+    // For now, just log the revision update
+    console.log('Revision update:', pId, rId, data);
+  }} />;
   if (route.startsWith('#/portal/')) {
     const accessId = route.split('/portal/')[1];
-    return <ClientPortal accessId={accessId} clients={clients} projects={projects} setClientFeedback={setClientFeedback} showNotification={showNotification} contracts={contracts} transactions={transactions} userProfile={profile} packages={packages} onClientConfirmation={(pId, stage) => setProjects(prev => prev.map(p => p.id === pId ? {...p, [`is${stage.charAt(0).toUpperCase() + stage.slice(1)}ConfirmedByClient`]: true} : p))} onClientSubStatusConfirmation={(pId, sub, note) => setProjects(prev => prev.map(p => p.id === pId ? {...p, confirmedSubStatuses: [...(p.confirmedSubStatuses || []), sub], clientSubStatusNotes: {...(p.clientSubStatusNotes || {}), [sub]: note}} : p))} onSignContract={(cId, sig, signer) => setContracts(prev => prev.map(c => c.id === cId ? {...c, [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig} : c))} />;
+    return <ClientPortal accessId={accessId} clients={clients} projects={projects} setClientFeedback={setClientFeedback} showNotification={showNotification} contracts={contracts} transactions={transactions} userProfile={profile || MOCK_DATA.profile} packages={packages} onClientConfirmation={(pId, stage) => {
+      console.log('Client confirmation:', pId, stage);
+    }} onClientSubStatusConfirmation={(pId, sub, note) => {
+      console.log('Client sub-status confirmation:', pId, sub, note);
+    }} onSignContract={(cId, sig, signer) => setContracts(prev => prev.map(c => c.id === cId ? {...c, [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig} : c))} />;
   }
   if (route.startsWith('#/freelancer-portal/')) {
      const accessId = route.split('/freelancer-portal/')[1];
-     return <FreelancerPortal accessId={accessId} teamMembers={teamMembers} projects={projects} teamProjectPayments={teamProjectPayments} teamPaymentRecords={teamPaymentRecords} rewardLedgerEntries={rewardLedgerEntries} showNotification={showNotification} onUpdateRevision={(pId, rId, data) => setProjects(prev => prev.map(p => p.id === pId ? {...p, revisions: p.revisions?.map(r => r.id === rId ? {...r, ...data, completedDate: new Date().toISOString()} : r)} : p))} sops={sops} userProfile={profile} />;
+     return <FreelancerPortal accessId={accessId} teamMembers={teamMembers} projects={projects} teamProjectPayments={teamProjectPayments} teamPaymentRecords={teamPaymentRecords} rewardLedgerEntries={rewardLedgerEntries} showNotification={showNotification} onUpdateRevision={(pId, rId, data) => {
+       console.log('Revision update:', pId, rId, data);
+     }} sops={sops} userProfile={profile || MOCK_DATA.profile} />;
   }
 
-  if (!isAuthenticated) return <Login onLoginSuccess={handleLoginSuccess} users={users} />;
+  if (!user) return <SupabaseAuth onAuthSuccess={handleAuthSuccess} />;
 
   return (
     <div className="flex h-screen bg-brand-bg text-brand-text-primary">
@@ -453,7 +517,7 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen}
         handleLogout={handleLogout}
-        currentUser={currentUser}
+        currentUser={null}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
@@ -463,8 +527,8 @@ const App: React.FC = () => {
             notifications={notifications}
             handleNavigation={handleNavigation}
             handleMarkAllAsRead={handleMarkAllAsRead}
-            currentUser={currentUser}
-            profile={profile}
+            currentUser={null}
+            profile={profile || MOCK_DATA.profile}
         />
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 xl:pb-8">
             {renderView()}
