@@ -52,7 +52,9 @@ const getSignatureStatus = (contract: Contract) => {
 
 interface ContractsProps {
     contracts: Contract[];
-    setContracts: React.Dispatch<React.SetStateAction<Contract[]>>;
+    createContract: (contract: Omit<Contract, 'id'>) => Promise<Contract>;
+    updateContract: (id: string, contract: Partial<Contract>) => Promise<void>;
+    deleteContract: (id: string) => Promise<void>;
     clients: Client[];
     projects: Project[];
     profile: Profile;
@@ -63,7 +65,7 @@ interface ContractsProps {
     onSignContract: (contractId: string, signatureDataUrl: string, signer: 'vendor' | 'client') => void;
 }
 
-const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients, projects, profile, showNotification, initialAction, setInitialAction, packages, onSignContract }) => {
+const Contracts: React.FC<ContractsProps> = ({ contracts, createContract, updateContract, deleteContract, clients, projects, profile, showNotification, initialAction, setInitialAction, packages, onSignContract }) => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('add');
@@ -190,7 +192,7 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (!selectedProjectId) {
@@ -200,30 +202,26 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
 
         if (modalMode === 'add') {
             const contractCount = contracts.length + 1;
-            const newContract: Contract = {
-                id: `CTR${Date.now()}`,
+            const newContractData: Omit<Contract, 'id'> = {
                 contractNumber: `VP/CTR/${new Date().getFullYear()}/${String(contractCount).padStart(3, '0')}`,
                 clientId: selectedClientId,
                 projectId: selectedProjectId,
                 createdAt: new Date().toISOString(),
                 ...formData,
             };
-            setContracts(prev => [...prev, newContract]);
+            await createContract(newContractData);
             showNotification('Kontrak baru berhasil dibuat.');
         } else if (selectedContract) {
-            const updatedContract: Contract = {
-                ...selectedContract,
-                ...formData
-            };
-            setContracts(prev => prev.map(c => c.id === selectedContract.id ? updatedContract : c));
+            const { id, createdAt, ...updateData } = { ...selectedContract, ...formData };
+            await updateContract(id, updateData);
             showNotification('Kontrak berhasil diperbarui.');
         }
         handleCloseModal();
     };
 
-    const handleDelete = (contractId: string) => {
+    const handleDelete = async (contractId: string) => {
         if (window.confirm("Apakah Anda yakin ingin menghapus kontrak ini?")) {
-            setContracts(prev => prev.filter(c => c.id !== contractId));
+            await deleteContract(contractId);
             showNotification('Kontrak berhasil dihapus.');
         }
     };

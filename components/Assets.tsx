@@ -31,12 +31,14 @@ const initialFormState: Omit<Asset, 'id'> = {
 
 interface AssetsProps {
     assets: Asset[];
-    setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
+    createAsset: (asset: Omit<Asset, 'id'>) => Promise<void>;
+    updateAsset: (id: string, asset: Partial<Asset>) => Promise<void>;
+    deleteAsset: (id: string) => Promise<void>;
     profile: Profile;
     showNotification: (message: string) => void;
 }
 
-const Assets: React.FC<AssetsProps> = ({ assets, setAssets, profile, showNotification }) => {
+const Assets: React.FC<AssetsProps> = ({ assets, createAsset, updateAsset, deleteAsset, profile, showNotification }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -84,30 +86,24 @@ const Assets: React.FC<AssetsProps> = ({ assets, setAssets, profile, showNotific
         }));
     };
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (modalMode === 'add') {
-            const newAsset: Asset = {
-                id: `ASSET${Date.now()}`,
-                ...formData
-            };
-            setAssets(prev => [newAsset, ...prev].sort((a,b) => a.name.localeCompare(b.name)));
-            showNotification(`Aset "${newAsset.name}" berhasil ditambahkan.`);
+            await createAsset(formData);
+            showNotification(`Aset "${formData.name}" berhasil ditambahkan.`);
         } else if (modalMode === 'edit' && selectedAsset) {
-            setAssets(prev => prev.map(a => 
-                a.id === selectedAsset.id ? { ...a, ...formData } : a
-            ).sort((a,b) => a.name.localeCompare(b.name)));
+            await updateAsset(selectedAsset.id, formData);
             showNotification(`Aset "${formData.name}" berhasil diperbarui.`);
         }
         
         handleCloseModal();
     };
 
-    const handleDelete = (assetId: string) => {
+    const handleDelete = async (assetId: string) => {
         const assetName = assets.find(a => a.id === assetId)?.name;
         if (window.confirm(`Apakah Anda yakin ingin menghapus aset "${assetName}"?`)) {
-            setAssets(prev => prev.filter(a => a.id !== assetId));
+            await deleteAsset(assetId);
             showNotification(`Aset "${assetName}" telah dihapus.`);
         }
     };

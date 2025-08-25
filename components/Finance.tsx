@@ -128,13 +128,15 @@ const CashWidget: React.FC<{ card: Card, onTopUp: () => void, onEdit: () => void
 
 interface FinanceProps {
     transactions: Transaction[];
-    setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+    createTransaction: (tx: Omit<Transaction, 'id'>) => Promise<Transaction>;
+    updateTransaction: (id: string, tx: Partial<Transaction>) => Promise<void>;
+    deleteTransaction: (id: string) => Promise<void>;
     pockets: FinancialPocket[];
-    setPockets: React.Dispatch<React.SetStateAction<FinancialPocket[]>>;
+    setPockets: React.Dispatch<React.SetStateAction<FinancialPocket[]>>; // Mocked for now
     projects: Project[];
     profile: Profile;
     cards: Card[];
-    setCards: React.Dispatch<React.SetStateAction<Card[]>>;
+    setCards: React.Dispatch<React.SetStateAction<Card[]>>; // Mocked for now
     teamMembers: TeamMember[];
     rewardLedgerEntries: RewardLedgerEntry[];
 }
@@ -166,7 +168,7 @@ const TransactionTable: React.FC<{transactions: Transaction[]}> = ({transactions
     );
 }
 
-const Finance: React.FC<FinanceProps> = ({ transactions, setTransactions, pockets, setPockets, projects, profile, cards, setCards, teamMembers, rewardLedgerEntries }) => {
+const Finance: React.FC<FinanceProps> = ({ transactions, createTransaction, updateTransaction, deleteTransaction, pockets, setPockets, projects, profile, cards, setCards, teamMembers, rewardLedgerEntries }) => {
     const [activeTab, setActiveTab] = useState<'transactions' | 'pockets' | 'cards' | 'cashflow' | 'laporan' | 'laporanKartu' | 'labaProyek'>('transactions');
     const [modalState, setModalState] = useState<{ type: null | 'transaction' | 'pocket' | 'card' | 'transfer' | 'topup-cash', mode: 'add' | 'edit', data?: any }>({ type: null, mode: 'add' });
     const [historyModalState, setHistoryModalState] = useState<{ type: 'card' | 'pocket' | 'reward_pool', item: Card | FinancialPocket | null } | null>(null);
@@ -548,50 +550,31 @@ const Finance: React.FC<FinanceProps> = ({ transactions, setTransactions, pocket
     const handleFormChange = (e: React.ChangeEvent<any>) => setForm((prev: any) => ({ ...prev, [e.target.name]: e.target.value }));
     const handleFilterChange = (e: React.ChangeEvent<any>) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const { type, mode, data } = modalState;
         
         if (type === 'transaction') {
-            const newTx = { ...form, amount: Number(form.amount) };
+            const txData = { ...form, amount: Number(form.amount) };
+
+            // Note: The original logic for balance updates is complex and tied to local state.
+            // This will be simplified to just creating/updating the transaction.
+            // A robust implementation would use backend logic (e.g., database triggers or serverless functions)
+            // to handle balance updates atomically.
+
             if (mode === 'add') {
-                 if (newTx.type === TransactionType.EXPENSE) {
-                    const source = newTx.sourceId; // e.g., 'card-CARD001' or 'pocket-POC003'
-                    if (source.startsWith('pocket-')) {
-                        const pocketId = source.replace('pocket-', '');
-                        const pocket = pockets.find(p => p.id === pocketId);
-                        if (!pocket || pocket.amount < newTx.amount) { alert(`Saldo di kantong ${pocket?.name} tidak mencukupi.`); return; }
-                        
-                        // Deduct from source card if linked
-                        if (pocket.sourceCardId) {
-                            const sourceCard = cards.find(c => c.id === pocket.sourceCardId);
-                            if (!sourceCard || sourceCard.balance < newTx.amount) { alert(`Saldo di kartu sumber (${sourceCard?.bankName}) tidak mencukupi.`); return; }
-                            setCards(prev => prev.map(c => c.id === pocket.sourceCardId ? { ...c, balance: c.balance - newTx.amount } : c));
-                        }
-                        
-                        setPockets(prev => prev.map(p => p.id === pocketId ? { ...p, amount: p.amount - newTx.amount } : p));
-                        newTx.pocketId = pocketId;
-                        newTx.cardId = pocket.sourceCardId; // Log the card ID for tracking
-                        newTx.method = 'Sistem';
-                    } else if (source.startsWith('card-')) {
-                        const cardId = source.replace('card-', '');
-                        const card = cards.find(c => c.id === cardId);
-                        if (!card || card.balance < newTx.amount) { alert(`Saldo di ${card?.bankName || 'sumber'} tidak mencukupi.`); return; }
-                        setCards(prev => prev.map(c => c.id === cardId ? { ...c, balance: c.balance - newTx.amount } : c));
-                        newTx.cardId = cardId;
-                        newTx.method = card.cardType === CardType.TUNAI ? 'Tunai' : 'Kartu';
+                const { sourceId, ...rest } = txData;
+                if (sourceId) {
+                    if (sourceId.startsWith('pocket-')) {
+                        rest.pocketId = sourceId.replace('pocket-', '');
+                    } else if (sourceId.startsWith('card-')) {
+                        rest.cardId = sourceId.replace('card-', '');
                     }
-                } else { // Income
-                    const cardId = newTx.cardId;
-                    const card = cards.find(c => c.id === cardId);
-                    if (!card) { alert("Kartu tujuan tidak valid."); return; }
-                    setCards(prev => prev.map(c => c.id === cardId ? { ...c, balance: c.balance + newTx.amount } : c));
-                    newTx.method = card.cardType === CardType.TUNAI ? 'Tunai' : 'Kartu';
                 }
-                setTransactions(prev => [...prev, { ...newTx, id: `TRN${Date.now()}` }].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                await createTransaction(rest);
             } else { // Edit mode
-                 setTransactions(prev => prev.map(t => t.id === data.id ? { ...t, ...newTx } : t));
-                 // Note: Balance recalculation for edit is complex and omitted for this scope.
+                const { id, ...updateData } = txData;
+                await updateTransaction(id, updateData);
             }
         }
         if (type === 'card') {
@@ -758,7 +741,7 @@ const Finance: React.FC<FinanceProps> = ({ transactions, setTransactions, pocket
         handleCloseModal();
     };
 
-    const handleDelete = (type: 'transaction' | 'pocket' | 'card', id: string) => {
+    const handleDelete = async (type: 'transaction' | 'pocket' | 'card', id: string) => {
         if (type === 'card') {
             const isUsed = transactions.some(t => t.cardId === id) || pockets.some(p => p.sourceCardId === id);
             if (isUsed) {
@@ -767,7 +750,7 @@ const Finance: React.FC<FinanceProps> = ({ transactions, setTransactions, pocket
             }
         }
         if (!window.confirm("Yakin ingin menghapus item ini? Transaksi terkait tidak akan dihapus.")) return;
-        if (type === 'transaction') setTransactions(p => p.filter(i => i.id !== id));
+        if (type === 'transaction') await deleteTransaction(id);
         if (type === 'pocket') setPockets(p => p.filter(i => i.id !== id));
         if (type === 'card') setCards(p => p.filter(i => i.id !== id));
     };

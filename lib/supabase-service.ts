@@ -750,8 +750,103 @@ export const transactionService = {
       printingItemId: data.printing_item_id || '',
       vendorSignature: data.vendor_signature || ''
     }
+  },
+
+  async updateTransaction(id: string, transactionData: Partial<Transaction>): Promise<void> {
+    const user = await getCurrentUser()
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        date: transactionData.date,
+        description: transactionData.description,
+        amount: transactionData.amount,
+        type: transactionData.type,
+        category: transactionData.category,
+        method: transactionData.method
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+  },
+
+  async deleteTransaction(id: string): Promise<void> {
+    const user = await getCurrentUser()
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
   }
 }
+
+// Add-on Services
+export const addOnService = {
+    async getAddOns(): Promise<AddOn[]> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase
+            .from('add_ons')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map(addon => ({
+            id: addon.id,
+            name: addon.name,
+            price: addon.price,
+        }));
+    },
+
+    async createAddOn(addOnData: Omit<AddOn, 'id'>): Promise<AddOn> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase
+            .from('add_ons')
+            .insert({
+                user_id: user.id,
+                name: addOnData.name,
+                price: addOnData.price,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            name: data.name,
+            price: data.price,
+        };
+    },
+
+    async updateAddOn(id: string, addOnData: Partial<AddOn>): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase
+            .from('add_ons')
+            .update({
+                name: addOnData.name,
+                price: addOnData.price,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+    },
+
+    async deleteAddOn(id: string): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase
+            .from('add_ons')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+    }
+};
 
 // Promo Code Services
 export const promoCodeService = {
@@ -774,8 +869,66 @@ export const promoCodeService = {
       usageCount: promo.usage_count,
       maxUsage: promo.max_usage,
       expiryDate: promo.expiry_date,
-      createdAt: promo.created_at
     }))
+  },
+
+  async createPromoCode(promoCodeData: Omit<PromoCode, 'id' | 'usageCount' | 'createdAt'>): Promise<PromoCode> {
+    const user = await getCurrentUser()
+    const { data, error } = await supabase
+      .from('promo_codes')
+      .insert({
+        user_id: user.id,
+        code: promoCodeData.code,
+        discount_type: promoCodeData.discountType,
+        discount_value: promoCodeData.discountValue,
+        is_active: promoCodeData.isActive,
+        max_usage: promoCodeData.maxUsage,
+        expiry_date: promoCodeData.expiryDate,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      id: data.id,
+      code: data.code,
+      discountType: data.discount_type as 'percentage' | 'fixed',
+      discountValue: data.discount_value,
+      isActive: data.is_active,
+      usageCount: data.usage_count,
+      maxUsage: data.max_usage,
+      expiryDate: data.expiry_date,
+    }
+  },
+
+  async updatePromoCode(id: string, promoCodeData: Partial<PromoCode>): Promise<void> {
+    const user = await getCurrentUser()
+    const { error } = await supabase
+      .from('promo_codes')
+      .update({
+        code: promoCodeData.code,
+        discount_type: promoCodeData.discountType,
+        discount_value: promoCodeData.discountValue,
+        is_active: promoCodeData.isActive,
+        max_usage: promoCodeData.maxUsage,
+        expiry_date: promoCodeData.expiryDate,
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+  },
+
+  async deletePromoCode(id: string): Promise<void> {
+    const user = await getCurrentUser()
+    const { error } = await supabase
+      .from('promo_codes')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
   },
 
   async getPublicPromoCodes(userId?: string): Promise<PromoCode[]> {
@@ -801,7 +954,6 @@ export const promoCodeService = {
       usageCount: promo.usage_count,
       maxUsage: promo.max_usage,
       expiryDate: promo.expiry_date,
-      createdAt: promo.created_at
     }))
   },
 
@@ -816,6 +968,120 @@ export const promoCodeService = {
     if (error) throw error
   }
 }
+
+// Team Member Services
+export const teamMemberService = {
+    async getTeamMembers(): Promise<TeamMember[]> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('team_members').select('*').eq('user_id', user.id);
+        if (error) throw error;
+        return data.map(tm => ({ ...tm, standardFee: tm.standard_fee, noRek: tm.no_rek, rewardBalance: tm.reward_balance, performanceNotes: tm.performance_notes, portalAccessId: tm.portal_access_id }));
+    },
+    async createTeamMember(teamMember: Omit<TeamMember, 'id'>): Promise<TeamMember> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('team_members').insert({ ...teamMember, user_id: user.id }).select().single();
+        if (error) throw error;
+        return { ...data, standardFee: data.standard_fee, noRek: data.no_rek, rewardBalance: data.reward_balance, performanceNotes: data.performance_notes, portalAccessId: data.portal_access_id };
+    },
+    async updateTeamMember(id: string, teamMember: Partial<TeamMember>): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('team_members').update(teamMember).eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    },
+    async deleteTeamMember(id: string): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('team_members').delete().eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    }
+};
+
+// Contract Services
+export const contractService = {
+    async getContracts(): Promise<Contract[]> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('contracts').select('*').eq('user_id', user.id);
+        if (error) throw error;
+        return data.map(c => ({ ...c, contractNumber: c.contract_number, signingDate: c.signing_date, signingLocation: c.signing_location, clientName1: c.client_name1, clientAddress1: c.client_address1, clientPhone1: c.client_phone1, clientName2: c.client_name2, clientAddress2: c.client_address2, clientPhone2: c.client_phone2, shootingDuration: c.shooting_duration, guaranteedPhotos: c.guaranteed_photos, albumDetails: c.album_details, digitalFilesFormat: c.digital_files_format, otherItems: c.other_items, personnelCount: c.personnel_count, deliveryTimeframe: c.delivery_timeframe, dpDate: c.dp_date, finalPaymentDate: c.final_payment_date, cancellationPolicy: c.cancellation_policy, vendorSignature: c.vendor_signature, clientSignature: c.client_signature }));
+    },
+    async createContract(contract: Omit<Contract, 'id'>): Promise<Contract> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('contracts').insert({ ...contract, user_id: user.id }).select().single();
+        if (error) throw error;
+        return { ...data, contractNumber: data.contract_number, signingDate: data.signing_date, signingLocation: data.signing_location, clientName1: data.client_name1, clientAddress1: data.client_address1, clientPhone1: data.client_phone1, clientName2: data.client_name2, clientAddress2: data.client_address2, clientPhone2: data.client_phone2, shootingDuration: data.shooting_duration, guaranteedPhotos: data.guaranteed_photos, albumDetails: data.album_details, digitalFilesFormat: data.digital_files_format, otherItems: data.other_items, personnelCount: data.personnel_count, deliveryTimeframe: data.delivery_timeframe, dpDate: data.dp_date, finalPaymentDate: data.final_payment_date, cancellationPolicy: data.cancellation_policy, vendorSignature: data.vendor_signature, clientSignature: data.client_signature };
+    },
+    async updateContract(id: string, contract: Partial<Contract>): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('contracts').update(contract).eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    },
+    async deleteContract(id: string): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('contracts').delete().eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    }
+};
+
+// Asset Services
+export const assetService = {
+    async getAssets(): Promise<Asset[]> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('assets').select('*').eq('user_id', user.id);
+        if (error) throw error;
+        return data.map(a => ({ ...a, purchaseDate: a.purchase_date, purchasePrice: a.purchase_price, serialNumber: a.serial_number }));
+    },
+    async createAsset(asset: Omit<Asset, 'id'>): Promise<Asset> {
+        const user = await getCurrentUser();
+        const { data, error } = await supabase.from('assets').insert({ ...asset, user_id: user.id }).select().single();
+        if (error) throw error;
+        return { ...data, purchaseDate: data.purchase_date, purchasePrice: data.purchase_price, serialNumber: data.serial_number };
+    },
+    async updateAsset(id: string, asset: Partial<Asset>): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('assets').update(asset).eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    },
+    async deleteAsset(id: string): Promise<void> {
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('assets').delete().eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+    }
+};
+
+// SOP Services
+// Assuming SOPs are stored in a simple table `sops` with id, user_id, title, content, category
+// This is a placeholder as SOPs are not in the provided schema.
+// We will need to add a table for SOPs if it doesn't exist.
+// For now, let's assume a simple structure.
+// CREATE TABLE sops ( id uuid primary key, user_id uuid, title text, content text, category text );
+export const sopService = {
+    async getSops(): Promise<any[]> {
+        // const user = await getCurrentUser();
+        // const { data, error } = await supabase.from('sops').select('*').eq('user_id', user.id);
+        // if (error) throw error;
+        // return data;
+        return Promise.resolve([]); // Placeholder
+    },
+    async createSop(sop: any): Promise<any> {
+        // const user = await getCurrentUser();
+        // const { data, error } = await supabase.from('sops').insert({ ...sop, user_id: user.id }).select().single();
+        // if (error) throw error;
+        // return data;
+        return Promise.resolve(sop); // Placeholder
+    },
+    async updateSop(id: string, sop: any): Promise<void> {
+        // const user = await getCurrentUser();
+        // const { error } = await supabase.from('sops').update(sop).eq('id', id).eq('user_id', user.id);
+        // if (error) throw error;
+        return Promise.resolve(); // Placeholder
+    },
+    async deleteSop(id: string): Promise<void> {
+        // const user = await getCurrentUser();
+        // const { error } = await supabase.from('sops').delete().eq('id', id).eq('user_id', user.id);
+        // if (error) throw error;
+        return Promise.resolve(); // Placeholder
+    }
+};
+
 
 // Authentication Services
 export const authService = {
