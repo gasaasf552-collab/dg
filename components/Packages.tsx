@@ -23,9 +23,13 @@ const emptyAddOnForm = { name: '', price: '' };
 
 interface PackagesProps {
     packages: Package[];
-    setPackages: React.Dispatch<React.SetStateAction<Package[]>>;
+    createPackage: (pkg: Omit<Package, 'id'>) => Promise<any>;
+    updatePackage: (id: string, pkg: Partial<Package>) => Promise<any>;
+    deletePackage: (id: string) => Promise<any>;
     addOns: AddOn[];
-    setAddOns: React.Dispatch<React.SetStateAction<AddOn[]>>;
+    createAddOn: (addOn: Omit<AddOn, 'id'>) => Promise<any>;
+    updateAddOn: (id: string, addOn: Partial<AddOn>) => Promise<any>;
+    deleteAddOn: (id: string) => Promise<any>;
     projects: Project[];
 }
 
@@ -37,7 +41,7 @@ const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) 
 });
 
 
-const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setAddOns, projects }) => {
+const Packages: React.FC<PackagesProps> = ({ packages, createPackage, updatePackage, deletePackage, addOns, createAddOn, updateAddOn, deleteAddOn, projects }) => {
   const [packageFormData, setPackageFormData] = useState(emptyPackageForm);
   const [packageEditMode, setPackageEditMode] = useState<string | null>(null);
 
@@ -69,7 +73,7 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             const base64 = await toBase64(file);
-            setPackages(prev => prev.map(p => p.id === packageId ? { ...p, coverImage: base64 } : p));
+            await updatePackage(packageId, { coverImage: base64 });
         }
     };
 
@@ -127,7 +131,7 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     });
   }
 
-  const handlePackageDelete = (pkgId: string) => {
+  const handlePackageDelete = async (pkgId: string) => {
     const isPackageInUse = projects.some(p => p.packageId === pkgId);
     if (isPackageInUse) {
         alert("Paket ini tidak dapat dihapus karena sedang digunakan oleh satu atau lebih proyek. Hapus atau ubah proyek tersebut terlebih dahulu.");
@@ -135,11 +139,11 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     }
 
     if (window.confirm("Apakah Anda yakin ingin menghapus paket ini?")) {
-        setPackages(prev => prev.filter(p => p.id !== pkgId));
+        await deletePackage(pkgId);
     }
   }
 
-  const handlePackageSubmit = (e: React.FormEvent) => {
+  const handlePackageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!packageFormData.name || !packageFormData.price) {
         alert('Nama Paket dan Harga tidak boleh kosong.');
@@ -160,10 +164,9 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     };
     
     if (packageEditMode) {
-        setPackages(prev => prev.map(p => p.id === packageEditMode ? { ...p, ...packageData } : p));
+        await updatePackage(packageEditMode, packageData);
     } else {
-        const newPackage: Package = { ...packageData, id: `PKG${Date.now()}` };
-        setPackages(prev => [...prev, newPackage]);
+        await createPackage(packageData);
     }
 
     handlePackageCancelEdit();
@@ -188,7 +191,7 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     });
   }
 
-  const handleAddOnDelete = (addOnId: string) => {
+  const handleAddOnDelete = async (addOnId: string) => {
     const isAddOnInUse = projects.some(p => p.addOns.some(a => a.id === addOnId));
     if (isAddOnInUse) {
         alert("Add-on ini tidak dapat dihapus karena sedang digunakan oleh satu atau lebih proyek. Hapus atau ubah proyek tersebut terlebih dahulu.");
@@ -196,11 +199,11 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     }
 
     if (window.confirm("Apakah Anda yakin ingin menghapus add-on ini?")) {
-        setAddOns(prev => prev.filter(a => a.id !== addOnId));
+        await deleteAddOn(addOnId);
     }
   }
 
-  const handleAddOnSubmit = (e: React.FormEvent) => {
+  const handleAddOnSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addOnFormData.name || !addOnFormData.price) {
         alert('Nama Add-On dan Harga tidak boleh kosong.');
@@ -213,10 +216,9 @@ const Packages: React.FC<PackagesProps> = ({ packages, setPackages, addOns, setA
     };
     
     if (addOnEditMode) {
-        setAddOns(prev => prev.map(a => a.id === addOnEditMode ? { ...a, ...addOnData } : a));
+        await updateAddOn(addOnEditMode, addOnData);
     } else {
-        const newAddOn: AddOn = { ...addOnData, id: `ADD${Date.now()}` };
-        setAddOns(prev => [...prev, newAddOn]);
+        await createAddOn(addOnData);
     }
 
     handleAddOnCancelEdit();

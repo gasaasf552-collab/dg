@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth, useProfile, useClients, usePackages, useLeads, useProjects } from './hooks/useSupabase';
+import { useAuth, useProfile, useClients, usePackages, useLeads, useProjects, useAddOns, useTransactions, usePromoCodes, useTeamMembers, useContracts, useAssets, useSops } from './hooks/useSupabase';
 import SupabaseAuth from './components/SupabaseAuth';
 import PublicSupabaseBooking from './components/PublicSupabaseBooking';
 import PublicSupabaseFeedback from './components/PublicSupabaseFeedback';
@@ -77,6 +77,13 @@ const App: React.FC = () => {
   const { packages, createPackage, updatePackage, deletePackage } = usePackages();
   const { leads, createLead, updateLead, deleteLead } = useLeads();
   const { projects, createProject, updateProject, deleteProject } = useProjects();
+  const { addOns, createAddOn, updateAddOn, deleteAddOn } = useAddOns();
+  const { transactions, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
+  const { promoCodes, createPromoCode, updatePromoCode, deletePromoCode } = usePromoCodes();
+  const { teamMembers, createTeamMember, updateTeamMember, deleteTeamMember } = useTeamMembers();
+  const { contracts, createContract, updateContract, deleteContract } = useContracts();
+  const { assets, createAsset, updateAsset, deleteAsset } = useAssets();
+  const { sops, createSop, updateSop, deleteSop } = useSops();
   
   const [activeView, setActiveView] = useState<ViewType>(ViewType.HOMEPAGE);
   const [notification, setNotification] = useState<string>('');
@@ -86,21 +93,14 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // --- Mock data for features not yet integrated with Supabase ---
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamMembers)));
-  const [transactions, setTransactions] = useState<Transaction[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.transactions)));
   const [teamProjectPayments, setTeamProjectPayments] = useState<TeamProjectPayment[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamProjectPayments)));
   const [teamPaymentRecords, setTeamPaymentRecords] = useState<TeamPaymentRecord[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.teamPaymentRecords)));
   const [pockets, setPockets] = useState<FinancialPocket[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.pockets)));
   const [rewardLedgerEntries, setRewardLedgerEntries] = useState<RewardLedgerEntry[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.rewardLedgerEntries)));
   const [cards, setCards] = useState<Card[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.cards)));
-  const [assets, setAssets] = useState<Asset[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.assets)));
-  const [contracts, setContracts] = useState<Contract[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.contracts)));
   const [clientFeedback, setClientFeedback] = useState<ClientFeedback[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.clientFeedback)));
   const [notifications, setNotifications] = useState<Notification[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.notifications)));
   const [socialMediaPosts, setSocialMediaPosts] = useState<SocialMediaPost[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.socialMediaPosts)));
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.promoCodes)));
-  const [sops, setSops] = useState<SOP[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.sops)));
-  const [addOns, setAddOns] = useState<AddOn[]>(() => JSON.parse(JSON.stringify(MOCK_DATA.addOns)));
 
 
     // --- [NEW] MOCK EMAIL SERVICE ---
@@ -276,66 +276,34 @@ const App: React.FC = () => {
         />;
       case ViewType.PROSPEK:
         return <Leads
-            leads={leads} setLeads={async (newLeads) => {
-              if (typeof newLeads === 'function') {
-                // Handle function updates - for now just log
-                console.log('Lead update function called')
-              } else {
-                // Handle direct array updates
-                console.log('Direct lead update')
-              }
-            }}
-            clients={clients} setClients={async (newClients) => {
-              if (typeof newClients === 'function') {
-                console.log('Client update function called')
-              } else {
-                console.log('Direct client update')
-              }
-            }}
-            projects={projects} setProjects={async (newProjects) => {
-              if (typeof newProjects === 'function') {
-                console.log('Project update function called')
-              } else {
-                console.log('Direct project update')
-              }
-            }}
+            leads={leads} createLead={createLead} updateLead={updateLead} deleteLead={deleteLead}
+            clients={clients} createClient={createClient}
+            projects={projects} createProject={createProject}
             packages={packages} addOns={addOns}
-            transactions={transactions} setTransactions={setTransactions}
+            transactions={transactions} createTransaction={createTransaction}
             userProfile={profile || MOCK_DATA.profile} setProfile={updateProfile} showNotification={showNotification}
             cards={cards} setCards={setCards}
             pockets={pockets} setPockets={setPockets}
-            promoCodes={promoCodes} setPromoCodes={setPromoCodes}
+            promoCodes={promoCodes}
         />;
       case ViewType.BOOKING:
         return <Booking
             leads={leads}
             clients={clients}
             projects={projects}
-            setProjects={setProjects}
+            createProject={createProject}
             packages={packages}
             userProfile={profile}
-            setProfile={setProfile}
+            setProfile={updateProfile}
             handleNavigation={handleNavigation}
             showNotification={showNotification}
         />;
       case ViewType.CLIENTS:
         return <Clients
-          clients={clients} setClients={async (newClients) => {
-            if (typeof newClients === 'function') {
-              console.log('Client update function called')
-            } else {
-              console.log('Direct client update')
-            }
-          }}
-          projects={projects} setProjects={async (newProjects) => {
-            if (typeof newProjects === 'function') {
-              console.log('Project update function called')
-            } else {
-              console.log('Direct project update')
-            }
-          }}
+          clients={clients} createClient={createClient} updateClient={updateClient} deleteClient={deleteClient}
+          projects={projects} createProject={createProject} updateProject={updateProject}
           packages={packages} addOns={addOns}
-          transactions={transactions} setTransactions={setTransactions}
+          transactions={transactions} createTransaction={createTransaction}
           userProfile={profile || MOCK_DATA.profile}
           showNotification={showNotification}
           initialAction={initialAction} setInitialAction={setInitialAction}
@@ -344,25 +312,19 @@ const App: React.FC = () => {
           contracts={contracts}
           handleNavigation={handleNavigation}
           clientFeedback={clientFeedback}
-          promoCodes={promoCodes} setPromoCodes={setPromoCodes}
-          onSignInvoice={(pId, sig) => setProjects(prev => prev.map(p => p.id === pId ? { ...p, invoiceSignature: sig } : p))}
-          onSignTransaction={(tId, sig) => setTransactions(prev => prev.map(t => t.id === tId ? { ...t, vendorSignature: sig } : t))}
+          promoCodes={promoCodes} createPromoCode={createPromoCode} updatePromoCode={updatePromoCode}
+          onSignInvoice={(pId, sig) => updateProject(pId, { invoiceSignature: sig })}
+          onSignTransaction={(tId, sig) => updateTransaction(tId, { vendorSignature: sig })}
           addNotification={addNotification}
         />;
       case ViewType.PROJECTS:
         return <Projects 
-          projects={projects} setProjects={async (newProjects) => {
-            if (typeof newProjects === 'function') {
-              console.log('Project update function called')
-            } else {
-              console.log('Direct project update')
-            }
-          }}
+          projects={projects} createProject={createProject} updateProject={updateProject} deleteProject={deleteProject}
           clients={clients}
           packages={packages}
           teamMembers={teamMembers}
           teamProjectPayments={teamProjectPayments} setTeamProjectPayments={setTeamProjectPayments}
-          transactions={transactions} setTransactions={setTransactions}
+          transactions={transactions} createTransaction={createTransaction}
           initialAction={initialAction} setInitialAction={setInitialAction}
           profile={profile || MOCK_DATA.profile}
           showNotification={showNotification}
@@ -373,25 +335,21 @@ const App: React.FC = () => {
         return (
           <Freelancers
             teamMembers={teamMembers}
-            setTeamMembers={setTeamMembers}
+            createTeamMember={createTeamMember}
+            updateTeamMember={updateTeamMember}
+            deleteTeamMember={deleteTeamMember}
             teamProjectPayments={teamProjectPayments}
             setTeamProjectPayments={setTeamProjectPayments}
             teamPaymentRecords={teamPaymentRecords}
             setTeamPaymentRecords={setTeamPaymentRecords}
             transactions={transactions}
-            setTransactions={setTransactions}
+            createTransaction={createTransaction}
             userProfile={profile || MOCK_DATA.profile}
             showNotification={showNotification}
             initialAction={initialAction}
             setInitialAction={setInitialAction}
             projects={projects}
-            setProjects={async (newProjects) => {
-              if (typeof newProjects === 'function') {
-                console.log('Project update function called')
-              } else {
-                console.log('Direct project update')
-              }
-            }}
+            updateProject={updateProject}
             rewardLedgerEntries={rewardLedgerEntries}
             setRewardLedgerEntries={setRewardLedgerEntries}
             pockets={pockets}
@@ -403,7 +361,10 @@ const App: React.FC = () => {
         );
       case ViewType.FINANCE:
         return <Finance 
-          transactions={transactions} setTransactions={setTransactions}
+          transactions={transactions}
+          createTransaction={createTransaction}
+          updateTransaction={updateTransaction}
+          deleteTransaction={deleteTransaction}
           pockets={pockets} setPockets={setPockets}
           projects={projects}
           profile={profile || MOCK_DATA.profile}
@@ -412,42 +373,66 @@ const App: React.FC = () => {
           rewardLedgerEntries={rewardLedgerEntries}
         />;
       case ViewType.PACKAGES:
-        return <Packages packages={packages} setPackages={async (newPackages) => {
-          if (typeof newPackages === 'function') {
-            console.log('Package update function called')
-          } else {
-            console.log('Direct package update')
-          }
-        }} addOns={addOns} setAddOns={setAddOns} projects={projects} />;
+        return <Packages
+            packages={packages}
+            createPackage={createPackage}
+            updatePackage={updatePackage}
+            deletePackage={deletePackage}
+            addOns={addOns}
+            createAddOn={createAddOn}
+            updateAddOn={updateAddOn}
+            deleteAddOn={deleteAddOn}
+            projects={projects}
+        />;
       case ViewType.ASSETS:
-        return <Assets assets={assets} setAssets={setAssets} profile={profile || MOCK_DATA.profile} showNotification={showNotification} />;
+        return <Assets
+            assets={assets}
+            createAsset={createAsset}
+            updateAsset={updateAsset}
+            deleteAsset={deleteAsset}
+            profile={profile || MOCK_DATA.profile}
+            showNotification={showNotification}
+        />;
       case ViewType.CONTRACTS:
         return <Contracts 
-            contracts={contracts} setContracts={setContracts}
-            clients={clients} projects={projects} profile={profile || MOCK_DATA.profile}
+            contracts={contracts}
+            createContract={createContract}
+            updateContract={updateContract}
+            deleteContract={deleteContract}
+            clients={clients}
+            projects={projects}
+            profile={profile || MOCK_DATA.profile}
             showNotification={showNotification}
             initialAction={initialAction} setInitialAction={setInitialAction}
             packages={packages}
-            onSignContract={(cId, sig, signer) => setContracts(prev => prev.map(c => c.id === cId ? { ...c, [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig } : c))}
+            onSignContract={(cId, sig, signer) => updateContract(cId, { [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig })}
         />;
       case ViewType.SOP:
-        return <SOPManagement sops={sops} setSops={setSops} profile={profile || MOCK_DATA.profile} showNotification={showNotification} />;
+        return <SOPManagement
+            sops={sops}
+            createSop={createSop}
+            updateSop={updateSop}
+            deleteSop={deleteSop}
+            profile={profile || MOCK_DATA.profile}
+            showNotification={showNotification}
+        />;
       case ViewType.SETTINGS:
         return <Settings 
-          profile={profile || MOCK_DATA.profile} setProfile={updateProfile} 
-          transactions={transactions} projects={projects}
+          profile={profile || MOCK_DATA.profile}
+          updateProfile={updateProfile}
+          transactions={transactions}
+          projects={projects}
           users={[]} // Empty for now since user management is not implemented
           setUsers={() => {}}
           currentUser={null}
         />;
       case ViewType.CALENDAR:
-        return <CalendarView projects={projects} setProjects={async (newProjects) => {
-          if (typeof newProjects === 'function') {
-            console.log('Project update function called')
-          } else {
-            console.log('Direct project update')
-          }
-        }} teamMembers={teamMembers} profile={profile || MOCK_DATA.profile} />;
+        return <CalendarView
+            projects={projects}
+            updateProject={updateProject}
+            teamMembers={teamMembers}
+            profile={profile || MOCK_DATA.profile}
+        />;
       case ViewType.CLIENT_REPORTS:
         return <ClientReports 
             clients={clients}
@@ -460,7 +445,14 @@ const App: React.FC = () => {
       case ViewType.SOCIAL_MEDIA_PLANNER:
         return <SocialPlanner posts={socialMediaPosts} setPosts={setSocialMediaPosts} projects={projects} showNotification={showNotification} />;
       case ViewType.PROMO_CODES:
-        return <PromoCodes promoCodes={promoCodes} setPromoCodes={setPromoCodes} projects={projects} showNotification={showNotification} />;
+        return <PromoCodes
+            promoCodes={promoCodes}
+            createPromoCode={createPromoCode}
+            updatePromoCode={updatePromoCode}
+            deletePromoCode={deletePromoCode}
+            projects={projects}
+            showNotification={showNotification}
+        />;
       default:
         return <div />;
     }

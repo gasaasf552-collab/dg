@@ -20,12 +20,14 @@ const emptyFormState = {
 
 interface PromoCodesProps {
     promoCodes: PromoCode[];
-    setPromoCodes: React.Dispatch<React.SetStateAction<PromoCode[]>>;
+    createPromoCode: (code: Omit<PromoCode, 'id' | 'usageCount' | 'createdAt'>) => Promise<void>;
+    updatePromoCode: (id: string, code: Partial<PromoCode>) => Promise<void>;
+    deletePromoCode: (id: string) => Promise<void>;
     projects: Project[];
     showNotification: (message: string) => void;
 }
 
-const PromoCodes: React.FC<PromoCodesProps> = ({ promoCodes, setPromoCodes, projects, showNotification }) => {
+const PromoCodes: React.FC<PromoCodesProps> = ({ promoCodes, createPromoCode, updatePromoCode, deletePromoCode, projects, showNotification }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [selectedCode, setSelectedCode] = useState<PromoCode | null>(null);
@@ -65,47 +67,36 @@ const PromoCodes: React.FC<PromoCodesProps> = ({ promoCodes, setPromoCodes, proj
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        const promoCodeData = {
+            code: formData.code.toUpperCase(),
+            discountType: formData.discountType,
+            discountValue: Number(formData.discountValue),
+            isActive: formData.isActive,
+            maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
+            expiryDate: formData.expiryDate || null,
+        };
+
         if (modalMode === 'add') {
-            const newCode: PromoCode = {
-                id: `PROMO${Date.now()}`,
-                code: formData.code.toUpperCase(),
-                discountType: formData.discountType,
-                discountValue: Number(formData.discountValue),
-                isActive: formData.isActive,
-                usageCount: 0,
-                maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
-                expiryDate: formData.expiryDate || null,
-                createdAt: new Date().toISOString(),
-            };
-            setPromoCodes(prev => [...prev, newCode]);
-            showNotification(`Kode promo "${newCode.code}" berhasil dibuat.`);
+            await createPromoCode(promoCodeData);
+            showNotification(`Kode promo "${promoCodeData.code}" berhasil dibuat.`);
         } else if (selectedCode) {
-            const updatedCode = {
-                ...selectedCode,
-                code: formData.code.toUpperCase(),
-                discountType: formData.discountType,
-                discountValue: Number(formData.discountValue),
-                isActive: formData.isActive,
-                maxUsage: formData.maxUsage ? Number(formData.maxUsage) : null,
-                expiryDate: formData.expiryDate || null,
-            };
-            setPromoCodes(prev => prev.map(c => c.id === selectedCode.id ? updatedCode : c));
-            showNotification(`Kode promo "${updatedCode.code}" berhasil diperbarui.`);
+            await updatePromoCode(selectedCode.id, promoCodeData);
+            showNotification(`Kode promo "${promoCodeData.code}" berhasil diperbarui.`);
         }
         handleCloseModal();
     };
 
-    const handleDelete = (codeId: string) => {
+    const handleDelete = async (codeId: string) => {
         const isUsed = projects.some(p => p.promoCodeId === codeId);
         if (isUsed) {
             showNotification('Kode promo tidak dapat dihapus karena sedang digunakan pada proyek.');
             return;
         }
         if (window.confirm("Apakah Anda yakin ingin menghapus kode promo ini?")) {
-            setPromoCodes(prev => prev.filter(c => c.id !== codeId));
+            await deletePromoCode(codeId);
             showNotification('Kode promo berhasil dihapus.');
         }
     };

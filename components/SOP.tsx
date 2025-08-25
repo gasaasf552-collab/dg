@@ -6,12 +6,14 @@ import { PlusIcon, PencilIcon, Trash2Icon, BookOpenIcon, ArrowDownIcon, ArrowUpI
 
 interface SOPProps {
     sops: types.SOP[];
-    setSops: React.Dispatch<React.SetStateAction<types.SOP[]>>;
+    createSop: (sop: Omit<types.SOP, 'id' | 'lastUpdated'>) => Promise<void>;
+    updateSop: (id: string, sop: Partial<types.SOP>) => Promise<void>;
+    deleteSop: (id: string) => Promise<void>;
     profile: types.Profile;
     showNotification: (message: string) => void;
 }
 
-const SOPManagement: React.FC<SOPProps> = ({ sops, setSops, profile, showNotification }) => {
+const SOPManagement: React.FC<SOPProps> = ({ sops, createSop, updateSop, deleteSop, profile, showNotification }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('add');
     const [selectedSop, setSelectedSop] = useState<types.SOP | null>(null);
@@ -47,31 +49,28 @@ const SOPManagement: React.FC<SOPProps> = ({ sops, setSops, profile, showNotific
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (modalMode === 'add') {
-            const newSop: types.SOP = {
-                id: `SOP${Date.now()}`,
+            const newSopData = {
                 ...formData,
-                lastUpdated: new Date().toISOString(),
             };
-            setSops(prev => [...prev, newSop].sort((a,b) => a.title.localeCompare(b.title)));
+            await createSop(newSopData);
             showNotification('SOP baru berhasil ditambahkan.');
         } else if (selectedSop) {
-            const updatedSop = {
-                ...selectedSop,
+            const updatedSopData = {
                 ...formData,
                 lastUpdated: new Date().toISOString(),
             };
-            setSops(prev => prev.map(s => s.id === selectedSop.id ? updatedSop : s));
+            await updateSop(selectedSop.id, updatedSopData);
             showNotification('SOP berhasil diperbarui.');
         }
         handleCloseModal();
     };
     
-    const handleDelete = (sopId: string) => {
+    const handleDelete = async (sopId: string) => {
         if (window.confirm("Yakin ingin menghapus SOP ini?")) {
-            setSops(prev => prev.filter(s => s.id !== sopId));
+            await deleteSop(sopId);
             showNotification('SOP berhasil dihapus.');
         }
     };
